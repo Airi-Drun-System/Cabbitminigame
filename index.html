@@ -62,6 +62,7 @@ h1 span{color:var(--gold)}
   <button class="card" data-go="blast"><div class="ic" style="background:#b28dff"><svg width="34" height="34" viewBox="0 0 34 34"><rect x="3" y="3" width="13" height="13" rx="3" fill="#fff"/><rect x="18" y="3" width="13" height="13" rx="3" fill="#ffe066"/><rect x="3" y="18" width="13" height="13" rx="3" fill="#ff6b8b"/></svg></div><b>Блок Бласт</b><small>Собирай линии</small><div class="best" id="bBlast"></div></button>
   <button class="card" data-go="match"><div class="ic" style="background:#6ee7a8"><svg width="34" height="34" viewBox="0 0 34 34"><circle cx="7" cy="17" r="5" fill="#ff6b8b"/><circle cx="17" cy="17" r="5" fill="#ff6b8b"/><circle cx="27" cy="17" r="5" fill="#ff6b8b"/></svg></div><b>Три в ряд</b><small>Меняй плитки местами</small><div class="best" id="bMatch"></div></button>
   <button class="card" data-go="g2048"><div class="ic" style="background:#ffb057"><svg width="34" height="34" viewBox="0 0 34 34"><text x="17" y="23" font-size="13" text-anchor="middle" fill="#0b2a52" font-family="BIPs">2048</text></svg></div><b>2048</b><small>Соединяй числа</small><div class="best" id="b2048"></div></button>
+  <button class="card" data-go="rings"><div class="ic" style="background:#b98cff"><svg width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="13" fill="none" stroke="#0b2a52" stroke-width="3" stroke-dasharray="62 20"/><circle cx="17" cy="17" r="7" fill="none" stroke="#0b2a52" stroke-width="3" stroke-dasharray="30 14"/><circle cx="17" cy="17" r="2.5" fill="#0b2a52"/></svg></div><b>Кольца</b><small>Выберись за 60 секунд</small><div class="best" id="bRings"></div></button>
   <button class="card" data-go="flap"><div class="ic" style="background:#5ec8ff"><svg width="34" height="34" viewBox="0 0 34 34"><path d="M4 22c6-10 14-14 26-12-6 2-9 6-10 12" fill="none" stroke="#0b2a52" stroke-width="4" stroke-linecap="round"/></svg></div><b>Прыгучий котокролик</b><small>Пролети между коробок</small><div class="best" id="bFlap"></div></button>
  </div>
  <div class="foot">Hop Hop Studio</div>
@@ -137,7 +138,7 @@ function pos(e){const r=cv.getBoundingClientRect();return [(e.clientX-r.left)/r.
 /* ---------- навигация ---------- */
 let G=null,raf=0;
 function show(id){['home','game'].forEach(s=>$('#'+s).classList.toggle('hide',s!==id))}
-function updBest(){$('#bBlast').textContent=BEST.blast?'Рекорд: '+BEST.blast:'';$('#bMatch').textContent=BEST.match?'Рекорд: '+BEST.match:'';$('#b2048').textContent=BEST.g2048?'Рекорд: '+BEST.g2048:'';$('#bFlap').textContent=BEST.flap?'Рекорд: '+BEST.flap:'';$('#bBoxes').textContent=BEST.boxes?'Рекорд: уровень '+BEST.boxes:'';$('#bOdd').textContent=BEST.odd?'Рекорд: '+BEST.odd:'';$('#bCount').textContent=BEST.count?'Рекорд: '+BEST.count:''}
+function updBest(){$('#bBlast').textContent=BEST.blast?'Рекорд: '+BEST.blast:'';$('#bMatch').textContent=BEST.match?'Рекорд: '+BEST.match:'';$('#b2048').textContent=BEST.g2048?'Рекорд: '+BEST.g2048:'';$('#bFlap').textContent=BEST.flap?'Рекорд: '+BEST.flap:'';$('#bRings').textContent=BEST.rings?(BEST.rings>1000?'Рекорд: выбрался за '+((100000-BEST.rings)/100).toFixed(1)+' с':'Рекорд: '+BEST.rings+' колец'):'';$('#bBoxes').textContent=BEST.boxes?'Рекорд: уровень '+BEST.boxes:'';$('#bOdd').textContent=BEST.odd?'Рекорд: '+BEST.odd:'';$('#bCount').textContent=BEST.count?'Рекорд: '+BEST.count:''}
 document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>start(b.dataset.go));
 $('#back').onclick=()=>{stop();show('home');updBest()};
 $('#toMenu').onclick=()=>{$('#over').classList.add('hide');stop();show('home');updBest()};
@@ -146,8 +147,8 @@ function stop(){cancelAnimationFrame(raf);G=null;tintCache={};['opts','qtabs','p
 function hearts(n){$('#hearts').innerHTML=Array.from({length:3},(_,i)=>`<svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C3 13 1 9 1 6a5 5 0 0 1 10-1 5 5 0 0 1 10 1c0 3-2 7-10 13z" fill="${i<n?'#ff5f7e':'rgba(255,255,255,.2)'}"/></svg>`).join('')}
 function gameOver(score,label){const k=G.kind;const nb=!BEST[k]||score>BEST[k];if(nb){BEST[k]=score;saveBest()}
  $('#oT').textContent=nb&&score>0?'Новый рекорд!':'Игра окончена';$('#oP').textContent=label+(nb?'':' · рекорд '+BEST[k]);$('#over').classList.remove('hide');nb?sfx.win():sfx.bad()}
-function start(kind){stop();show('game');H={quiz:520,blast:600,match:540,g2048:540,flap:620}[kind]||560;fit();cv.style.touchAction=['blast','match','g2048'].includes(kind)?'none':'manipulation';setStat('Уровень',1);$('#lvl').parentElement.classList.toggle('hide',kind==='quiz');$('#hearts').classList.toggle('hide',!['boxes','odd','count'].includes(kind));
- G={kind,lvl:1,lives:3,score:0};hearts(3);({boxes:boxesInit,odd:oddInit,count:countInit,quiz:quizInit,blast:blastInit,match:matchInit,g2048:g2Init,flap:flapInit})[kind]();loop()}
+function start(kind){stop();show('game');H={quiz:520,blast:600,match:540,g2048:540,flap:620,rings:620}[kind]||560;fit();cv.style.touchAction=['blast','match','g2048'].includes(kind)?'none':'manipulation';setStat('Уровень',1);$('#lvl').parentElement.classList.toggle('hide',kind==='quiz');$('#hearts').classList.toggle('hide',!['boxes','odd','count'].includes(kind));
+ G={kind,lvl:1,lives:3,score:0};hearts(3);({boxes:boxesInit,odd:oddInit,count:countInit,quiz:quizInit,blast:blastInit,match:matchInit,g2048:g2Init,flap:flapInit,rings:ringsInit})[kind]();loop()}
 function loop(t){raf=requestAnimationFrame(loop);if(!G)return;G.now=performance.now()/1000;G.draw&&G.draw(G.now)}
 cv.addEventListener('pointerdown',e=>{if(!G)return;const [px,py]=pos(e);if(G.down)G.down(px,py,e);if(G.tap)G.tap(px,py)});
 /* =========================================================
@@ -399,6 +400,40 @@ function draw2048(now){const dt=dtOf(now);x.clearRect(0,0,W,H);const bw=Q*QS+(Q+
 /* =========================================================
    8. ПРЫГУЧИЙ КОТОКРОЛИК (флаппи)
    ========================================================= */
+// ===== Кольца =====
+const RN=85,RR0=62,RSP=1.7,RGAP=.5,RBR=10;
+function ringsInit(){const a=[];for(let i=0;i<RN;i++)a.push(Math.random()*.2+i*.06);
+ Object.assign(G,{ang:a,inner:0,dir:1,bx:(Math.random()-.5)*20,by:-10,vx:(Math.random()-.5)*300,vy:0,spin:0,phi:0,t:0,started:false,done:false,fx:[]});
+ setStat('Колец',RN);$('#msg').textContent='Нажимай, чтобы котокролик подпрыгнул. Выберись за 60 секунд';G.draw=drawRings;G.tap=ringsTap;G.key=k=>{if(k===' '||k==='ArrowUp')ringsTap()}}
+function ringsTap(){if(G.done)return;G.started=true;G.vy=Math.min(G.vy,0)-300;beep(620,.06,'triangle',.05,1.3)}
+const RNOTES=[523,587,659,784,880,1046,880,784,659,587];let rnI=0;
+function ringsStep(dt){const cx=0,cy=0;
+ for(let i=G.inner;i<RN;i++){const w=G.dir*(1.7-1.1*i/RN);G.ang[i]+=w*dt}
+ G.vy+=700*dt;G.bx+=G.vx*dt;G.by+=G.vy*dt;G.phi+=G.spin*dt;
+ if(G.inner>=RN){return}
+ const rin=RR0+G.inner*RSP,d=Math.hypot(G.bx,G.by);
+ if(d+RBR>rin){const a=Math.atan2(G.by,G.bx),rel=((a-G.ang[G.inner])%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  if(rel<RGAP){G.fx.push({r:rin,t:0});G.inner++;G.dir*=-1;setStat('Колец',RN-G.inner);beep(900+G.inner*14,.05,'sine',.05);
+   if(G.inner>=RN){G.done=true;const left=Math.max(0,60-G.t);sfx.win();setTimeout(()=>G&&G.kind==='rings'&&gameOver(100000-Math.round(G.t*100),'Выбрался за '+G.t.toFixed(1)+' с'),1400)}}
+  else{const nx=G.bx/d,ny=G.by/d,vn=G.vx*nx+G.vy*ny;if(vn>0){G.vx-=2*vn*nx;G.vy-=2*vn*ny;G.spin=(G.vx*-ny+G.vy*nx)/RBR;if(vn>90){beep(RNOTES[rnI++%RNOTES.length],.12,'triangle',Math.min(.07,.02+vn/12000))}}
+   const o=d+RBR-rin;G.bx-=nx*o;G.by-=ny*o}}}
+function drawRings(now){const dt=dtOf(now);const cx=W/2,cy=H/2-20;
+ if(G.started&&!G.done){G.t+=dt;const n=6;for(let k=0;k<n;k++)ringsStep(dt/n);
+  if(G.t>=60){G.done=true;sfx.bad();setTimeout(()=>G&&G.kind==='rings'&&gameOver(G.inner,'Сломано колец: '+G.inner+' из '+RN),900)}}
+ else if(G.done&&G.inner>=RN){for(let k=0;k<6;k++)ringsStep(dt/6)}
+ else if(!G.started){for(let i=0;i<RN;i++)G.ang[i]+=(1.7-1.1*i/RN)*dt*.4}
+ x.clearRect(0,0,W,H);x.fillStyle='#07070d';x.beginPath();x.arc(cx,cy,RR0+RN*RSP+8,0,Math.PI*2);x.fill();
+ x.lineWidth=RSP+1.2;
+ for(let i=RN-1;i>=G.inner;i--){const k=i/(RN-1),c1=[255,255,255],c2=[130,40,220],c=c1.map((v,j)=>Math.round(v+(c2[j]-v)*Math.pow(k,.8)));
+  x.strokeStyle=`rgb(${c})`;const r=RR0+i*RSP+RSP/2;x.beginPath();x.arc(cx,cy,r,G.ang[i]+RGAP,G.ang[i]+Math.PI*2);x.stroke()}
+ G.fx=G.fx.filter(f=>(f.t+=dt)<.4);for(const f of G.fx){x.strokeStyle=`rgba(255,255,255,${.6*(1-f.t/.4)})`;x.lineWidth=2;x.beginPath();x.arc(cx,cy,f.r+f.t*60,0,Math.PI*2);x.stroke()}
+ // котокролик-шарик
+ const bx=cx+G.bx,by=cy+G.by;x.save();x.translate(bx,by);x.rotate(G.phi);x.fillStyle='#5adcff';x.beginPath();x.arc(0,0,RBR+2,0,Math.PI*2);x.fill();
+ x.beginPath();x.arc(0,0,RBR,0,Math.PI*2);x.clip();x.fillStyle='#eef';x.fillRect(-RBR,-RBR,RBR*2,RBR*2);if(K){const sx=K.width/802;x.drawImage(K,260*sx,30*sx,460*sx,460*sx,-RBR-1,-RBR-1,RBR*2+2,RBR*2+2)};x.restore();
+ // таймер
+ const tl=Math.max(0,60-G.t);x.fillStyle=G.done&&G.inner>=RN?'#7ef0a0':'#fff';x.font='34px BIPs';x.textAlign='center';x.fillText(tl.toFixed(2).replace('.',':'),cx,cy+RR0+RN*RSP+60);
+ if(!G.started){x.fillStyle='rgba(255,255,255,.85)';x.font='20px BIPs';x.fillText('Нажми, чтобы начать',cx,cy+RR0+RN*RSP+95)}
+ if(G.done&&G.inner>=RN){x.fillStyle='#7ef0a0';x.font='30px BIPs';x.fillText('Выбрался!',cx,cy+RR0+RN*RSP+100)}}
 function flapInit(){Object.assign(G,{ky:H/2-40,vy:0,pipes:[],score:0,started:false,dead:false,spd:150,next:300});setStat('Очки',0);$('#msg').textContent='Нажимай, чтобы котокролик прыгал';G.draw=drawFlap;G.tap=flapTap;G.key=k=>{if(k===' '||k==='ArrowUp')flapTap()}}
 function flapTap(){if(G.dead)return;G.started=true;G.vy=-400;beep(700,.07,'triangle',.06,1.4)}
 function drawFlap(now){const dt=dtOf(now);x.clearRect(0,0,W,H);
