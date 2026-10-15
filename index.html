@@ -147,7 +147,7 @@ function stop(){cancelAnimationFrame(raf);G=null;tintCache={};['opts','qtabs','p
 function hearts(n){$('#hearts').innerHTML=Array.from({length:3},(_,i)=>`<svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C3 13 1 9 1 6a5 5 0 0 1 10-1 5 5 0 0 1 10 1c0 3-2 7-10 13z" fill="${i<n?'#ff5f7e':'rgba(255,255,255,.2)'}"/></svg>`).join('')}
 function gameOver(score,label){const k=G.kind;const nb=!BEST[k]||score>BEST[k];if(nb){BEST[k]=score;saveBest()}
  $('#oT').textContent=nb&&score>0?'Новый рекорд!':'Игра окончена';$('#oP').textContent=label+(nb?'':' · рекорд '+BEST[k]);$('#over').classList.remove('hide');nb?sfx.win():sfx.bad()}
-function start(kind){stop();show('game');H={quiz:520,blast:600,match:540,g2048:540,flap:620,rings:620}[kind]||560;fit();cv.style.touchAction=['blast','match','g2048'].includes(kind)?'none':'manipulation';setStat('Уровень',1);$('#lvl').parentElement.classList.toggle('hide',kind==='quiz');$('#hearts').classList.toggle('hide',!['boxes','odd','count'].includes(kind));
+function start(kind){stop();show('game');{const eb=document.getElementById('rEdBtn');if(eb)eb.classList.toggle('hide',kind!=='rings')}H={quiz:520,blast:600,match:540,g2048:540,flap:620,rings:620}[kind]||560;fit();cv.style.touchAction=['blast','match','g2048'].includes(kind)?'none':'manipulation';setStat('Уровень',1);$('#lvl').parentElement.classList.toggle('hide',kind==='quiz');$('#hearts').classList.toggle('hide',!['boxes','odd','count'].includes(kind));
  G={kind,lvl:1,lives:3,score:0};hearts(3);({boxes:boxesInit,odd:oddInit,count:countInit,quiz:quizInit,blast:blastInit,match:matchInit,g2048:g2Init,flap:flapInit,rings:ringsInit})[kind]();loop()}
 function loop(t){raf=requestAnimationFrame(loop);if(!G)return;G.now=performance.now()/1000;G.draw&&G.draw(G.now)}
 cv.addEventListener('pointerdown',e=>{if(!G)return;const [px,py]=pos(e);if(G.down)G.down(px,py,e);if(G.tap)G.tap(px,py)});
@@ -400,40 +400,91 @@ function draw2048(now){const dt=dtOf(now);x.clearRect(0,0,W,H);const bw=Q*QS+(Q+
 /* =========================================================
    8. ПРЫГУЧИЙ КОТОКРОЛИК (флаппи)
    ========================================================= */
-// ===== Кольца =====
-const RN=85,RR0=62,RSP=1.7,RGAP=.5,RBR=10;
-function ringsInit(){const a=[];for(let i=0;i<RN;i++)a.push(Math.random()*.2+i*.06);
- Object.assign(G,{ang:a,inner:0,dir:1,bx:(Math.random()-.5)*20,by:-10,vx:(Math.random()-.5)*300,vy:0,spin:0,phi:0,t:0,started:false,done:false,fx:[]});
- setStat('Колец',RN);$('#msg').textContent='Нажимай, чтобы котокролик подпрыгнул. Выберись за 60 секунд';G.draw=drawRings;G.tap=ringsTap;G.key=k=>{if(k===' '||k==='ArrowUp')ringsTap()}}
-function ringsTap(){if(G.done)return;G.started=true;G.vy=Math.min(G.vy,0)-300;beep(620,.06,'triangle',.05,1.3)}
+// ===== Кольца (с редактором) =====
+const RS_DEF={n:85,r0:62,sp:1.7,th:1.2,gap:29,spiral:3.4,wIn:1.7,wOut:.6,flip:true,colMode:'grad',c1:'#ffffff',c2:'#8228dc',glow:0,bgMode:'dark',bg1:'#07070d',bg2:'#2a1460',img:'',light:true,ball:10,ballCol:'#5adcff',grav:700,bounce:1,jump:300,time:60,auto:false,timer:true};
+const RS_PRE={'Как в TikTok':{},'Неон':{colMode:'grad',c1:'#00fff0',c2:'#ff00d4',glow:12,bgMode:'dark',bg1:'#000000',ballCol:'#ffffff'},'Радуга':{colMode:'rainbow',glow:6,bgMode:'grad',bg1:'#0b0b1a',bg2:'#1a0b2a'},'Мята':{colMode:'grad',c1:'#e8fff6',c2:'#1fa58a',bgMode:'grad',bg1:'#082a2a',bg2:'#0b2a52',ballCol:'#ffe28a'},'Огонь':{colMode:'grad',c1:'#fff3a0',c2:'#d81e1e',glow:8,bgMode:'dark',bg1:'#120404'},'Много колец':{n:220,sp:.8,th:1.25,gap:22,spiral:2.5}};
+let RS=(()=>{try{return Object.assign({},RS_DEF,JSON.parse(localStorage.getItem('kk_rings')||'{}'))}catch(e){return Object.assign({},RS_DEF)}})();
+let RIMG=null;function loadRImg(){RIMG=null;if(RS.bgMode==='image'&&RS.img){const i=new Image();i.onload=()=>RIMG=i;i.src=RS.img}}loadRImg();
+function saveRS(){try{localStorage.setItem('kk_rings',JSON.stringify(RS))}catch(e){try{const c=Object.assign({},RS,{img:''});localStorage.setItem('kk_rings',JSON.stringify(c))}catch(_){}}}
+const hex2=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+function ringCol(i){const k=RS.n>1?i/(RS.n-1):0;if(RS.colMode==='solid')return RS.c1;
+ if(RS.colMode==='rainbow')return `hsl(${Math.round(k*300)},90%,62%)`;const a=hex2(RS.c1),b=hex2(RS.c2);return `rgb(${a.map((v,j)=>Math.round(v+(b[j]-v)*Math.pow(k,.8)))})`}
+function ringsInit(){const a=[];const sp=RS.spiral/Math.max(1,RS.n);for(let i=0;i<RS.n;i++)a.push(Math.random()*.15+i*sp);
+ Object.assign(G,{ang:a,inner:0,dir:1,bx:(Math.random()-.5)*20,by:-10,vx:(Math.random()-.5)*300,vy:0,spin:0,phi:0,t:0,started:!!RS.auto,done:false,fx:[]});
+ setStat('Колец',RS.n);$('#msg').textContent=RS.auto?'Режим просмотра: котокролик выбирается сам':'Нажимай, чтобы котокролик подпрыгнул'+(RS.time?'. Выберись за '+RS.time+' секунд':'');
+ G.draw=drawRings;G.tap=ringsTap;G.key=k=>{if(k===' '||k==='ArrowUp')ringsTap()};ringsUI()}
+function ringsTap(){if(G.done||RS.auto)return;G.started=true;G.vy=Math.min(G.vy,0)-RS.jump;beep(620,.06,'triangle',.05,1.3)}
 const RNOTES=[523,587,659,784,880,1046,880,784,659,587];let rnI=0;
-function ringsStep(dt){const cx=0,cy=0;
- for(let i=G.inner;i<RN;i++){const w=G.dir*(1.7-1.1*i/RN);G.ang[i]+=w*dt}
- G.vy+=700*dt;G.bx+=G.vx*dt;G.by+=G.vy*dt;G.phi+=G.spin*dt;
- if(G.inner>=RN){return}
- const rin=RR0+G.inner*RSP,d=Math.hypot(G.bx,G.by);
- if(d+RBR>rin){const a=Math.atan2(G.by,G.bx),rel=((a-G.ang[G.inner])%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
-  if(rel<RGAP){G.fx.push({r:rin,t:0});G.inner++;G.dir*=-1;setStat('Колец',RN-G.inner);beep(900+G.inner*14,.05,'sine',.05);
-   if(G.inner>=RN){G.done=true;const left=Math.max(0,60-G.t);sfx.win();setTimeout(()=>G&&G.kind==='rings'&&gameOver(100000-Math.round(G.t*100),'Выбрался за '+G.t.toFixed(1)+' с'),1400)}}
-  else{const nx=G.bx/d,ny=G.by/d,vn=G.vx*nx+G.vy*ny;if(vn>0){G.vx-=2*vn*nx;G.vy-=2*vn*ny;G.spin=(G.vx*-ny+G.vy*nx)/RBR;if(vn>90){beep(RNOTES[rnI++%RNOTES.length],.12,'triangle',Math.min(.07,.02+vn/12000))}}
-   const o=d+RBR-rin;G.bx-=nx*o;G.by-=ny*o}}}
-function drawRings(now){const dt=dtOf(now);const cx=W/2,cy=H/2-20;
- if(G.started&&!G.done){G.t+=dt;const n=6;for(let k=0;k<n;k++)ringsStep(dt/n);
-  if(G.t>=60){G.done=true;sfx.bad();setTimeout(()=>G&&G.kind==='rings'&&gameOver(G.inner,'Сломано колец: '+G.inner+' из '+RN),900)}}
- else if(G.done&&G.inner>=RN){for(let k=0;k<6;k++)ringsStep(dt/6)}
- else if(!G.started){for(let i=0;i<RN;i++)G.ang[i]+=(1.7-1.1*i/RN)*dt*.4}
- x.clearRect(0,0,W,H);x.fillStyle='#07070d';x.beginPath();x.arc(cx,cy,RR0+RN*RSP+8,0,Math.PI*2);x.fill();
- x.lineWidth=RSP+1.2;
- for(let i=RN-1;i>=G.inner;i--){const k=i/(RN-1),c1=[255,255,255],c2=[130,40,220],c=c1.map((v,j)=>Math.round(v+(c2[j]-v)*Math.pow(k,.8)));
-  x.strokeStyle=`rgb(${c})`;const r=RR0+i*RSP+RSP/2;x.beginPath();x.arc(cx,cy,r,G.ang[i]+RGAP,G.ang[i]+Math.PI*2);x.stroke()}
- G.fx=G.fx.filter(f=>(f.t+=dt)<.4);for(const f of G.fx){x.strokeStyle=`rgba(255,255,255,${.6*(1-f.t/.4)})`;x.lineWidth=2;x.beginPath();x.arc(cx,cy,f.r+f.t*60,0,Math.PI*2);x.stroke()}
- // котокролик-шарик
- const bx=cx+G.bx,by=cy+G.by;x.save();x.translate(bx,by);x.rotate(G.phi);x.fillStyle='#5adcff';x.beginPath();x.arc(0,0,RBR+2,0,Math.PI*2);x.fill();
- x.beginPath();x.arc(0,0,RBR,0,Math.PI*2);x.clip();x.fillStyle='#eef';x.fillRect(-RBR,-RBR,RBR*2,RBR*2);if(K){const sx=K.width/802;x.drawImage(K,260*sx,30*sx,460*sx,460*sx,-RBR-1,-RBR-1,RBR*2+2,RBR*2+2)};x.restore();
- // таймер
- const tl=Math.max(0,60-G.t);x.fillStyle=G.done&&G.inner>=RN?'#7ef0a0':'#fff';x.font='34px BIPs';x.textAlign='center';x.fillText(tl.toFixed(2).replace('.',':'),cx,cy+RR0+RN*RSP+60);
- if(!G.started){x.fillStyle='rgba(255,255,255,.85)';x.font='20px BIPs';x.fillText('Нажми, чтобы начать',cx,cy+RR0+RN*RSP+95)}
- if(G.done&&G.inner>=RN){x.fillStyle='#7ef0a0';x.font='30px BIPs';x.fillText('Выбрался!',cx,cy+RR0+RN*RSP+100)}}
+function ringsStep(dt){const N=RS.n;
+ for(let i=G.inner;i<N;i++){const k=N>1?i/(N-1):0;const w=(RS.flip?G.dir:1)*(RS.wIn+(RS.wOut-RS.wIn)*k);G.ang[i]+=w*dt}
+ G.vy+=RS.grav*dt;G.bx+=G.vx*dt;G.by+=G.vy*dt;G.phi+=G.spin*dt;
+ if(G.inner>=N)return;
+ const rin=RS.r0+G.inner*RS.sp,d=Math.hypot(G.bx,G.by),R=RS.ball,gap=RS.gap*Math.PI/180;
+ if(d+R>rin){const a=Math.atan2(G.by,G.bx),rel=((a-G.ang[G.inner])%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  if(rel<gap){G.fx.push({r:rin,t:0,c:ringCol(G.inner)});G.inner++;G.dir*=-1;setStat('Колец',N-G.inner);if(G.inner%Math.max(1,Math.round(N/85))===0)beep(900+Math.min(60,G.inner)*14,.05,'sine',.05);
+   if(G.inner>=N){G.done=true;sfx.win();if(!RS.auto)setTimeout(()=>G&&G.kind==='rings'&&gameOver(100000-Math.round(G.t*100),'Выбрался за '+G.t.toFixed(1)+' с'),1400);else setTimeout(()=>G&&G.kind==='rings'&&ringsInit(),2500)}}
+  else{const nx=G.bx/d,ny=G.by/d,vn=G.vx*nx+G.vy*ny;if(vn>0){const e=RS.bounce;G.vx-=(1+e)*vn*nx;G.vy-=(1+e)*vn*ny;G.spin=(G.vx*-ny+G.vy*nx)/R;if(vn>90){beep(RNOTES[rnI++%RNOTES.length],.12,'triangle',Math.min(.07,.02+vn/12000))}}
+   const o=d+R-rin;G.bx-=nx*o;G.by-=ny*o}}}
+function drawRings(now){const dt=dtOf(now);const cx=W/2,cy=H/2-20,N=RS.n;
+ if(G.started&&!G.done){G.t+=dt;for(let k=0;k<6;k++)ringsStep(dt/6);
+  if(RS.time&&!RS.auto&&G.t>=RS.time){G.done=true;sfx.bad();setTimeout(()=>G&&G.kind==='rings'&&gameOver(G.inner,'Сломано колец: '+G.inner+' из '+N),900)}}
+ else if(G.done&&G.inner>=N){for(let k=0;k<6;k++)ringsStep(dt/6)}
+ else if(!G.started){for(let i=0;i<N;i++){const k=N>1?i/(N-1):0;G.ang[i]+=(RS.wIn+(RS.wOut-RS.wIn)*k)*dt*.4}}
+ // фон
+ x.clearRect(0,0,W,H);
+ if(RS.bgMode==='image'&&RIMG){const s=Math.max(W/RIMG.width,H/RIMG.height);x.drawImage(RIMG,(W-RIMG.width*s)/2,(H-RIMG.height*s)/2,RIMG.width*s,RIMG.height*s)}
+ else if(RS.bgMode==='grad'){const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,RS.bg1);g.addColorStop(1,RS.bg2);x.fillStyle=g;x.fillRect(0,0,W,H)}
+ else if(RS.bgMode==='color'){x.fillStyle=RS.bg1;x.fillRect(0,0,W,H)}
+ else{x.fillStyle=RS.bg1;x.beginPath();x.arc(cx,cy,(RS.r0+N*RS.sp)*Math.min(1,195/(RS.r0+N*RS.sp))+8,0,Math.PI*2);x.fill()}
+ if(RS.light){const g=x.createRadialGradient(cx,cy,10,cx,cy,260);g.addColorStop(0,'rgba(255,255,255,.18)');g.addColorStop(1,'rgba(255,255,255,0)');x.fillStyle=g;x.fillRect(0,0,W,H)}
+ const sc=Math.min(1,195/(RS.r0+N*RS.sp));x.save();x.translate(cx,cy);x.scale(sc,sc);
+ x.lineWidth=RS.sp*RS.th+.2;if(RS.glow){x.shadowBlur=RS.glow;}
+ const gap=RS.gap*Math.PI/180;
+ for(let i=N-1;i>=G.inner;i--){const c=ringCol(i);x.strokeStyle=c;if(RS.glow)x.shadowColor=c;const r=RS.r0+i*RS.sp+RS.sp/2;x.beginPath();x.arc(0,0,r,G.ang[i]+gap,G.ang[i]+Math.PI*2);x.stroke()}
+ x.shadowBlur=0;
+ G.fx=G.fx.filter(f=>(f.t+=dt)<.4);for(const f of G.fx){x.globalAlpha=.6*(1-f.t/.4);x.strokeStyle=f.c;x.lineWidth=2/sc;x.beginPath();x.arc(0,0,f.r+f.t*60,0,Math.PI*2);x.stroke()}x.globalAlpha=1;
+ const R=RS.ball;x.save();x.translate(G.bx,G.by);x.rotate(G.phi);x.fillStyle=RS.ballCol;x.beginPath();x.arc(0,0,R+2,0,Math.PI*2);x.fill();
+ x.beginPath();x.arc(0,0,R,0,Math.PI*2);x.clip();x.fillStyle='#eef';x.fillRect(-R,-R,R*2,R*2);if(K){const s2=K.width/802;x.drawImage(K,260*s2,30*s2,460*s2,460*s2,-R-1,-R-1,R*2+2,R*2+2)}x.restore();
+ x.restore();
+ const yb=cy+200;x.textAlign='center';
+ if(RS.timer){const tl=RS.time&&!RS.auto?Math.max(0,RS.time-G.t):G.t;x.fillStyle=G.done&&G.inner>=N?'#7ef0a0':'#fff';x.font='34px BIPs';x.fillText(tl.toFixed(2).replace('.',':'),cx,yb+50)}
+ if(!G.started){x.fillStyle='rgba(255,255,255,.85)';x.font='20px BIPs';x.fillText('Нажми, чтобы начать',cx,yb+85)}
+ if(G.done&&G.inner>=N){x.fillStyle='#7ef0a0';x.font='30px BIPs';x.fillText('Выбрался!',cx,yb+90)}}
+// ---- панель редактора ----
+function ringsUI(){if(!$('#rEdBtn')){const b=document.createElement('button');b.id='rEdBtn';b.textContent='Редактор';b.style.cssText='position:absolute;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:30;background:#ffe28a;color:#0b2a52;border-radius:14px;padding:10px 16px;font-size:16px;box-shadow:0 4px 14px rgba(0,0,0,.3)';b.onclick=()=>openRE();$('#game').appendChild(b)}$('#rEdBtn').classList.remove('hide')}
+const RE_FIELDS=[
+ ['Кольца',[['n','Количество колец','range',5,300,1],['r0','Размер центра','range',20,150,1],['sp','Расстояние между кольцами','range',.6,12,.1],['th','Толщина кольца','range',.3,1.5,.05],['gap','Ширина прорези, градусы','range',8,120,1],['spiral','Закрутка прорезей','range',0,12,.1]]],
+ ['Вращение',[['wIn','Скорость центра','range',0,5,.05],['wOut','Скорость края','range',-3,5,.05],['flip','Сломал кольцо = все крутятся в другую сторону','check']]],
+ ['Цвет',[['colMode','Режим','select',[['grad','Градиент'],['solid','Один цвет'],['rainbow','Радуга']]],['c1','Цвет центра','color'],['c2','Цвет края','color'],['glow','Свечение','range',0,30,1]]],
+ ['Фон',[['bgMode','Фон','select',[['dark','Тёмный диск'],['color','Один цвет'],['grad','Градиент'],['image','Картинка']]],['bg1','Цвет фона 1','color'],['bg2','Цвет фона 2','color'],['img','Картинка фона','file'],['light','Подсветка в центре','check']]],
+ ['Котокролик',[['ball','Размер','range',5,30,1],['ballCol','Цвет обводки','color'],['grav','Гравитация','range',0,2000,10],['bounce','Упругость отскока','range',.5,1,.01],['jump','Сила прыжка','range',100,700,10]]],
+ ['Игра',[['time','Лимит времени, сек (0 — без лимита)','range',0,180,5],['auto','Режим просмотра (без управления, для видео)','check'],['timer','Показывать таймер','check']]]];
+function openRE(){let p=$('#rEd');if(!p){p=document.createElement('div');p.id='rEd';p.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(5,10,25,.72);display:flex;align-items:flex-end;justify-content:center';document.body.appendChild(p)}
+ const row=(f)=>{const [k,l,t,a,b,st]=f,v=RS[k];
+  if(t==='range')return `<label class="re-r"><span>${l}<b id="rv_${k}">${v}</b></span><input type="range" data-k="${k}" min="${a}" max="${b}" step="${st}" value="${v}"></label>`;
+  if(t==='check')return `<label class="re-c"><input type="checkbox" data-k="${k}" ${v?'checked':''}><span>${l}</span></label>`;
+  if(t==='color')return `<label class="re-c"><input type="color" data-k="${k}" value="${v}"><span>${l}</span></label>`;
+  if(t==='select')return `<label class="re-r"><span>${l}</span><select data-k="${k}">${a.map(([o,n])=>`<option value="${o}" ${o===v?'selected':''}>${n}</option>`).join('')}</select></label>`;
+  if(t==='file')return `<label class="re-r"><span>${l}</span><input type="file" accept="image/*" data-k="${k}"></label>`};
+ p.innerHTML=`<style>#rEd .pn{width:min(100%,520px);max-height:86vh;overflow:auto;background:#0e2546;border-radius:22px 22px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px));font-size:15px}
+ #rEd h3{font-size:20px;margin:14px 0 8px;color:#ffe28a}#rEd .re-r{display:block;margin:8px 0}#rEd .re-r span{display:flex;justify-content:space-between;margin-bottom:4px}#rEd input[type=range]{width:100%}
+ #rEd .re-c{display:flex;align-items:center;gap:10px;margin:8px 0}#rEd select,#rEd input[type=file]{width:100%;padding:8px;border-radius:10px;background:#16365f;color:#fff;border:1px solid rgba(255,255,255,.2);font:inherit}
+ #rEd input[type=color]{width:46px;height:34px;border:0;background:none}#rEd .pr{display:flex;flex-wrap:wrap;gap:8px}#rEd .pr button,#rEd .bt button{background:rgba(255,255,255,.12);border-radius:12px;padding:8px 12px}
+ #rEd .bt{display:flex;gap:10px;position:sticky;bottom:-20px;background:#0e2546;padding:12px 0 4px}#rEd .bt button{flex:1;padding:12px}#rEd .bt .go{background:#ffe28a;color:#0b2a52}</style>
+ <div class="pn"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:22px">Редактор колец</b><button id="reX" style="font-size:16px;padding:8px 12px;background:rgba(255,255,255,.12);border-radius:12px">Закрыть</button></div>
+ <h3>Готовые стили</h3><div class="pr">${Object.keys(RS_PRE).map(n=>`<button data-pre="${n}">${n}</button>`).join('')}</div>
+ ${RE_FIELDS.map(([h,fs])=>`<h3>${h}</h3>`+fs.map(row).join('')).join('')}
+ <div class="bt"><button id="reReset">Сбросить</button><button class="go" id="reGo">Начать заново</button></div></div>`;
+ p.classList.remove('hide');
+ p.querySelectorAll('[data-k]').forEach(el=>{const k=el.dataset.k;
+  el.oninput=el.onchange=async()=>{if(el.type==='checkbox')RS[k]=el.checked;else if(el.type==='range'){RS[k]=+el.value;$('#rv_'+k).textContent=el.value}
+   else if(el.type==='file'){const f=el.files[0];if(!f)return;RS.img=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,900/Math.max(im.width,im.height));c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);r(c.toDataURL('image/jpeg',.82))};im.src=fr.result};fr.readAsDataURL(f)});RS.bgMode='image';const sel=p.querySelector('[data-k=bgMode]');if(sel)sel.value='image'}
+   else RS[k]=el.value;
+   saveRS();loadRImg();if(['n','spiral'].includes(k)&&G&&G.kind==='rings'&&!G.started)ringsInit()}});
+ p.querySelectorAll('[data-pre]').forEach(b=>b.onclick=()=>{RS=Object.assign({},RS_DEF,{img:RS.img},RS_PRE[b.dataset.pre]);saveRS();loadRImg();openRE()});
+ $('#reX').onclick=()=>p.classList.add('hide');p.onclick=e=>{if(e.target===p)p.classList.add('hide')};
+ $('#reReset').onclick=()=>{RS=Object.assign({},RS_DEF);saveRS();loadRImg();openRE()};
+ $('#reGo').onclick=()=>{p.classList.add('hide');if(G&&G.kind==='rings'){G.kind='rings';ringsInit()}}}
 function flapInit(){Object.assign(G,{ky:H/2-40,vy:0,pipes:[],score:0,started:false,dead:false,spd:150,next:300});setStat('Очки',0);$('#msg').textContent='Нажимай, чтобы котокролик прыгал';G.draw=drawFlap;G.tap=flapTap;G.key=k=>{if(k===' '||k==='ArrowUp')flapTap()}}
 function flapTap(){if(G.dead)return;G.started=true;G.vy=-400;beep(700,.07,'triangle',.06,1.4)}
 function drawFlap(now){const dt=dtOf(now);x.clearRect(0,0,W,H);
